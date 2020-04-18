@@ -3,13 +3,16 @@ services:
 
   #PHP Service
   app:
+    build:
+      context: ${BACKEND_DIRECTORY}/php
+      dockerfile: dockerfile-${PHP_VERSION}
     image: php/${PHP_VERSION}
     container_name: app
     restart: unless-stopped
     tty: true
     environment:
-      SERVICE_NAME: app
-      SERVICE_TAGS: dev
+      SERVICE_NAME: ${SERVICE_NAME}
+      SERVICE_TAGS: ${SERVICE_TAGS}
     working_dir: /var/www
     volumes:
       - ${WEB_DATA_DIR}:/var/www
@@ -20,6 +23,9 @@ services:
 
   #Nginx Service
   webserver:
+    build: 
+      context: ${FRONTEND_DIRECTORY}/nginx
+      dockerfile: dockerfile-webserver
     image: nginx:alpine
     container_name: webserver
     restart: unless-stopped
@@ -29,11 +35,53 @@ services:
       - "${WEB_PORT_SSL}:443"
     volumes:
       - ${WEB_DATA_DIR}:/var/www
-      - ${NGINX_CONF_DIR}:/etc/nginx
+      - ${NGINX_CONF_DIR}:/etc/nginx/conf.d:rw
+      - ${NGINX_CERTS_DIR}:/etc/nginx/certs
     networks:
       - app-network
-#Docker Networks
 
+
+
+  #MySQL Service
+  mysqldb:
+    image: mysql:latest
+    container_name: mysqldb
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "${MYSQ_PORT}:3306"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST}
+      SERVICE_TAGS: ${SERVICE_TAGS}
+      SERVICE_NAME: ${SERVICE_NAME}
+      MYSQL_ALLOW_EMPTY_PASSWORD: ${MYSQL_ALLOW_EMPTY_PASSWORD}
+    volumes:
+      - ${SQL_DATA_DIR}:/var/lib/mysql/
+      - ${SQL_CONF_DIR}:/etc/mysql/conf.d/
+    command: '--default-authentication-plugin=mysql_native_password'
+    networks:
+      - app-network
+
+      #phpMyAdmin Service
+  myadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    ports:
+       - "${MYADMIN_PORT}:80"
+    environment:
+       - PMA_ARBITRARY=1
+       - PMA_HOST=mysqldb
+    restart: always
+    links:
+       - mysqldb
+    networks:
+       - app-network
+
+#Docker Networks
 networks:
-  app-network:
+  app-network :
         driver: bridge
