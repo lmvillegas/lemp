@@ -1,4 +1,5 @@
 
 
 ###SQLLOG
-data/dbdata/binlog*
+data/dbdata/binlog.*
+data/dbdata/*.log
