@@ -1,0 +1,113 @@
+ARG NGINX_VER=1.17.9
+
+FROM nginx:${NGINX_VER}-alpine as build_nginx
+
+ARG MODSEC_BRANCH=v3.0.4
+ARG GEO_DB_RELEASE=2020-03
+ARG OWASP_BRANCH=v3.2/master
+
+#set maintaner owner
+MAINTAINER lvillegas <luism.villegass@gmail.com>
+
+# Install dependencies; includes dependencies required for compile-time options:
+# curl, libxml, pcre, and lmdb and Modsec
+RUN echo "Installing Dependencies" && \
+    apk add --no-cache --virtual general-dependencies \
+    gcc \
+    make \
+    libc-dev \
+    g++ \
+    openssl-dev \
+    linux-headers \
+    pcre-dev \
+    zlib-dev \
+    git \
+    libtool \
+    automake \
+    autoconf \
+    lmdb-dev \
+    libxml2-dev \
+    curl-dev \
+    byacc \
+    flex \
+    yajl-dev \
+    geoip-dev \
+    libstdc++ \
+    libmaxminddb-dev \
+    openssl \ 
+    curl \ 
+    ca-certificates 
+
+#To set up the apk repository for stable nginx packages, run the following command
+RUN printf "%s%s%s\n" \
+    "http://nginx.org/packages/alpine/v" \
+    `egrep -o '^[0-9]+\.[0-9]+' /etc/alpine-release` \
+    "/main" \
+    | tee -a /etc/apk/repositories
+
+RUN printf "%s%s%s\n" \
+    "http://nginx.org/packages/alpine/v" \
+    `egrep -o '^[0-9]+\.[0-9]+' /etc/alpine-release` \
+    "/main" \
+    | tee -a /etc/apk/repositories
+
+RUN curl -o /tmp/nginx_signing.rsa.pub https://nginx.org/keys/nginx_signing.rsa.pub
+
+RUN openssl rsa -pubin -in /tmp/nginx_signing.rsa.pub -text -noout 
+RUN  mv /tmp/nginx_signing.rsa.pub /etc/apk/keys/ 
+RUN  apk add nginx
+
+# Install modules dependencies; 
+RUN echo "Installing Modules Dependencies" && \
+        apk update --no-cache && \
+        apk add --no-cache --virtual general-dependencies \
+        nginx-mod-http-geoip2 \
+        nginx-mod-http-lua-upstream \
+        nginx-mod-stream \
+        nginx-mod-http-echo \
+        nginx-mod-http-image-filter \
+        nginx-mod-http-cache-purge \
+        nginx-module-njs \
+        nginx-mod-http-redis2 \
+        nginx-mod-http-headers-more \
+        nginx-mod-devel-kit \
+        nginx-mod-http-perl \
+        nginx-mod-http-js \
+        nginx-mod-http-upstream-fair \
+        nginx-mod-http-vod \
+        nginx-mod-http-upload-progress \
+        nginx-mod-mail \
+        nginx-module-geoip \
+        nginx-module-xslt \
+        nginx-mod-http-xslt-filter \
+        nginx-mod-http-lua \
+        nginx-mod-http-set-misc \
+        nginx-module-image-filter \
+        nginx-mod-rtmp
+ 
+
+#build_nginx
+
+# Copy local config files into the image
+
+COPY nginx.conf /etc/nginx/
+COPY errors /usr/share/nginx/errors
+
+
+RUN apk add --no-cache \
+    yajl \
+    libstdc++ \
+    libmaxminddb-dev \
+    lmdb-dev \
+    libxml2-dev \
+    curl-dev \
+    tzdata && \
+    chown -R nginx:nginx /usr/share/nginx 
+
+#RUN chown -R nginx.nginx /etc/nginx
+
+
+WORKDIR /usr/share/nginx/html
+
+EXPOSE 80 443
+#CMD ["nginx"]
